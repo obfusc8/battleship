@@ -1,4 +1,4 @@
-#!/usr/bin/python3      # This is server.py file
+#!/usr/bin/python3
 import socket
 import select
 import sys
