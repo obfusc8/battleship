@@ -8,7 +8,7 @@ from Ship import Ship
 from PrintText import PrintText
 
 ### GAME VARS ###
-server_ip = "192.168.1.71"
+server_ip = "192.168.86.38"
 isPlayer2 = False
 animate = True
 ccode_view_all = "SATELLITE"
