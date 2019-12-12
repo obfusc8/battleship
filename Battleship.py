@@ -246,12 +246,12 @@ while GAMEON:
             hit = True
         else:
             # wait for response
-            hit = makeBool(enemy.recv(1024).decode('ascii'))
-
+            hit = enemy.recv(1024).decode('ascii')
             if not hit:
                 # Server lost...
                 print("SORRY! Server connection lost...")
                 break
+            hit = makeBool(hit)
 
         # log results           
         p.logShot(shot[0],int(shot[1]), hit)
