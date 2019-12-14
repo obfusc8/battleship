@@ -12,6 +12,7 @@ server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 # get local machine name
 host = "192.168.86.38"
+#host = "SAL-1908-KJ"
 port = 9999
 
 # bind to the port
@@ -24,36 +25,68 @@ UP = True
 
 while UP:
 
-   try:
-      print("waiting for player 1 to connect...")
-      player1, addr1 = server.accept()
-      greeting = "Hello PLAYER 1, you are connected!".encode('ascii')
-      player1.send(greeting)
+   GAMEON = False
 
-      print("waiting for player 2 to connect...")
-      player2, addr2 = server.accept()
-      greeting = "Hello PLAYER 2, you are connected!".encode('ascii')
-      player2.send(greeting)
+   print("Starting new session...")
+   print("Waiting for 2 players to join")
 
-   except KeyboardInterrupt:
-      print("Keyboard Interrupt")
-      ### END GAME ###
-      UP = False
+   players = list()
+
+   # Wait until 2 players have joined #
+   while (len(players) != 2):
+
       try:
-         player1.close()
-      except:
-         pass
-      try:
-         player2.close()
-      except:
-         pass
-      break
+         print(str(len(players)), "Players connected...")
+         print("Waiting for a player connection...")
+         # Accept connection and add to list
+         player, addr = server.accept()
+         print("Player connected...")
+         greeting = "You are connected!".encode('ascii')
+         print("Sending ack to player...")
+         player.send(greeting)
+         print("Adding player to roster...")
+         players.append((player, addr))
+      except KeyboardInterrupt:
+         print("[Keyboard Interrupt] Server was halted")
+         ### KILL SERVER ###
+         UP = False
+         try:
+            for p in players:
+               p[0].close()
+         except:
+            pass
+         break
 
-   players = [(player1, addr1),(player2, addr2)]
+      # Check to see if all players are still present
+      print("Checking to see if all players are still connected")
+      for p in players:
+         try:
+            print("Unblocking socket")
+            p[0].setblocking(0)
+            print("Testing connection")
+            test = p[0].recv(1024)
+            print("Blocking socket")
+            p[0].setblocking(1)
+         except BlockingIOError:
+            p[0].setblocking(1)
+         except:
+            print("Player connection lost, removing from roster...")
+            p[0].close()
+            players.remove(p)
+            continue
 
-   GAMEON = True
+   if (len(players) == 2):
+      # Assign player positions and start game
+      print("2 Players connected, sending player assignments")
+      for n,p in enumerate(players):
+         assignment = "PLAYER " + str(n+1)
+         print("Sending assignment to", assignment)
+         assignment = assignment.encode('ascii')
+         p[0].send(assignment)
 
-   print("starting game...")
+      GAMEON = True
+      print("starting game...")
+      
    while GAMEON:
 
       for i in range(2):

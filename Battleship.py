@@ -9,6 +9,7 @@ from PrintText import PrintText
 
 ### GAME VARS ###
 server_ip = "192.168.86.38"
+#server_ip = "SAL-1908-KJ"
 isPlayer2 = False
 animate = True
 ccode_view_all = "SATELLITE"
@@ -84,13 +85,17 @@ try:
     s.connect((host, port))
     greeting = s.recv(1024).decode('ascii')
     print(" "+ greeting)
-    print(" Press ENTER to continue... ")
-    input()
+    print(" "+ ("Wating for the other player to join..."))
+    greeting = s.recv(1024).decode('ascii')
 
+    print(" All players have joined...")
     if (greeting.find("PLAYER 1") != -1):
+        print(" You are PLAYER 1: Press ENTER to continue... ")
         START = True
     else:
+        print(" You are PLAYER 2: Press ENTER to continue... ")
         START = False
+    input()
 
     # all good!
     GAMEON = True
