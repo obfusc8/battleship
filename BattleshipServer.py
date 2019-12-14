@@ -75,7 +75,7 @@ while UP:
 
             # HIT RECEIVED
             print("waiting for enemy response...")
-            hit = shooter.recv(1024)
+            hit = enemy.recv(1024)
             if not hit:
                raise PlayerError("Connection lost from player")
             print("received:", hit.decode('ascii'), "from enemy")
