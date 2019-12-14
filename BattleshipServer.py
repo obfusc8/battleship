@@ -3,6 +3,9 @@ import socket
 import select
 import sys
 
+class PlayerError(Exception):
+   pass
+
 # create a socket object
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -63,12 +66,7 @@ while UP:
             print("waiting for shooter...")
             shot = shooter.recv(1024)
             if not shot:
-               ### END GAME ###
-               print("Connection lost from shooter!")
-               GAMEON = False
-               shooter.close()
-               enemy.close()
-               break
+               raise PlayerError("Connection lost from player")
 
             # SHOT SENT
             print("received:", shot.decode('ascii'), "from shooter")
@@ -77,26 +75,44 @@ while UP:
 
             # HIT RECEIVED
             print("waiting for enemy response...")
-            hit = enemy.recv(1024)
-            print("received:", hit.decode('ascii'), "from enemy")
+            hit = shooter.recv(1024)
             if not hit:
-               print("Connection lost from enemy!")
-               ### END GAME ###
-               GAMEON = False
-               shooter.close()
-               enemy.close()
-               break
+               raise PlayerError("Connection lost from player")
+            print("received:", hit.decode('ascii'), "from enemy")
             
             # HIT SENT
             print("sending hit to shooter...")
             shooter.send(hit)
             
          except KeyboardInterrupt:
-            print("Keyboard Interrupt")
+            print("[Keyboard Interrupt] Server was halted")
             ### END GAME ###
             GAMEON = False
-            shooter.close()
-            enemy.close()
+            try:
+               shooter.close()
+               enemy.close()
+            except:
+               pass
+            break
+         except ConnectionResetError:
+            print("[Reset Connection Error] Connection lost from player!")
+            ### END GAME ###
+            GAMEON = False
+            try:
+               shooter.close()
+               enemy.close()
+            except:
+               pass
+            break
+         except PlayerError:
+            print("[Player Error] Connection lost from player!")
+            ### END GAME ###
+            GAMEON = False
+            try:
+               shooter.close()
+               enemy.close()
+            except:
+               pass
             break
 
    """ TEMP STOPPER WHEN TROUBLESHOOTING
