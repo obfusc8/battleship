@@ -31,13 +31,13 @@ TEXT_COLOR = (255,255,255)
 
 pygame.init()
 clock = pygame.time.Clock()
+TITLE_FONT = pygame.font.SysFont(None,200)
 GAME_FONT = pygame.font.SysFont(None,40)
+TEXT_FONT = pygame.font.SysFont(None,24)
 
+# TEMP BOARD DATA FOR TESTING #
 board1 = [[0 for x in range(NUM_CELLS)] for x in range(NUM_CELLS)]
 board2 = [[0 for x in range(NUM_CELLS)] for x in range(NUM_CELLS)]
-#board1[0][0] = 1
-#board1[0][1] = 6
-#board1[0][2] = 7
 
 HIT_ASCII2 = """
 XX      XX
@@ -83,9 +83,9 @@ def makeSurfFromASCII(text, fg=(0,0,0), bg=(255,255,255)):
 
 #HIT_SURF = pygame.transform.scale(makeSurfFromASCII(HIT_ASCII, HIT_COLOR), (CELL_WIDTH, CELL_WIDTH))
 
-def drawText(text, surf, x, y, fgcol, bgcol, pos='left'):
+def drawText(text, surf, font, x, y, fgcol, bgcol, pos='left'):
     # creates the text in memory (it's not on a surface yet).
-    textobj = GAME_FONT.render(text, 1, fgcol, bgcol)
+    textobj = font.render(text, 1, fgcol, bgcol)
     textobj.set_colorkey(bgcol)
     textrect = textobj.get_rect()
 
@@ -100,7 +100,7 @@ def drawText(text, surf, x, y, fgcol, bgcol, pos='left'):
 
 def drawBoard(screen, board, xy):
     image = pygame.Surface([BOARD_WIDTH, BOARD_HEIGHT])
-    pygame.draw.rect(image, BOARD_BG, [0, 0, BOARD_WIDTH, BOARD_HEIGHT])
+    boardrect = pygame.draw.rect(image, BOARD_BG, [0, 0, BOARD_WIDTH, BOARD_HEIGHT])
 
     for row in range(NUM_CELLS):
         for col in range(NUM_CELLS):
@@ -113,12 +113,74 @@ def drawBoard(screen, board, xy):
                 color = BACKGROUND
             else:
                 color = BOARD_FG
-                
-            pygame.draw.rect(image, color, [(CELL_WIDTH + CELL_MARGIN) * col + CELL_BORDER,
-                                               (CELL_WIDTH + CELL_MARGIN) * row + CELL_BORDER,
-                                                CELL_WIDTH, CELL_WIDTH])
-            
+            x = (CELL_WIDTH + CELL_MARGIN) * col + CELL_BORDER
+            y = (CELL_WIDTH + CELL_MARGIN) * row + CELL_BORDER
+            pygame.draw.rect(image, color, [x, y, CELL_WIDTH, CELL_WIDTH])
+
     screen.blit(image, xy)
+    return boardrect
+
+def startScreen(surf):
+
+    surf.fill(BACKGROUND)
+        
+    ready = False
+    connected = False
+    while not ready:
+
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if connected == True and \
+            (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or \
+            event.type == pygame.MOUSEBUTTONDOWN:
+                ready = True
+
+        if not connected:
+            delay = 1000
+        else:
+            delay = 0
+
+        drawText("BATTLESHIP",
+                 surf, TITLE_FONT,
+                 SCREEN_WIDTH//2, SCREEN_HEIGHT//4,
+                 TEXT_COLOR, BACKGROUND, 'center')
+        temp = drawText("Connecting to the battleship server...",
+                 surf, TEXT_FONT,
+                 SCREEN_WIDTH//2, SCREEN_HEIGHT//2,
+                 TEXT_COLOR, BACKGROUND, 'center')
+        pygame.display.update()
+        pygame.time.delay(delay)
+        temp = drawText("Connected!",
+                 surf, TEXT_FONT,
+                 SCREEN_WIDTH//2, temp.y+temp.height+5,
+                 TEXT_COLOR, BACKGROUND, 'center')
+        pygame.display.update()
+        pygame.time.delay(delay)
+        temp = drawText("Waiting for the other player to join...",
+                 surf, TEXT_FONT,
+                 SCREEN_WIDTH//2, temp.y+temp.height+5,
+                 TEXT_COLOR, BACKGROUND, 'center')
+        pygame.display.update()
+        pygame.time.delay(delay)
+        temp = drawText("All players have joined...",
+                 surf, TEXT_FONT,
+                 SCREEN_WIDTH//2, temp.y+temp.height+5,
+                 TEXT_COLOR, BACKGROUND, 'center')
+        pygame.display.update()
+        pygame.time.delay(delay)
+        temp = drawText("You are PLAYER 1: Press ENTER to continue...",
+                 surf, TEXT_FONT,
+                 SCREEN_WIDTH//2, temp.y+temp.height+5,
+                 TEXT_COLOR, BACKGROUND, 'center')
+        connected = True
+        pygame.display.update()
+        
+    return
+    
 
 def main():
     mainSurface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -128,7 +190,8 @@ def main():
 
     pygame.display.set_caption('BATTLESHIP')
 
-    #showStartScreen(mainSurface)
+    startScreen(mainSurface)
+    #setupScreen(mainSurface)
 
     yourTurn = True
     done = False
@@ -162,7 +225,14 @@ def main():
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     yourTurn = True
 
-        # Flash background #
+        # If a hit was registered #
+            #hitAnimation(mainSurface)
+
+        # IF game is over
+            #finalScreen(mainSurface)
+            #QUIT
+
+        # If it is players turn #
         if yourTurn:
             alpha += direction
             if alpha % 100 == 0: direction *= -1
@@ -176,12 +246,26 @@ def main():
         flashSurface.set_alpha(alpha)
         mainSurface.blit(flashSurface, (0,0))
 
-        
-        drawText("YOU", mainSurface, P_BOARD_POSX+(BOARD_WIDTH//2), P_BOARD_POSY-30, TEXT_COLOR, BACKGROUND, 'center')
+        # PLAYER BOARD #
+        drawText("YOU",
+                 mainSurface,
+                 GAME_FONT,
+                 P_BOARD_POSX+(BOARD_WIDTH//2),
+                 P_BOARD_POSY-30,
+                 TEXT_COLOR,
+                 BACKGROUND,
+                 'center')
         drawBoard(mainSurface, board1, (P_BOARD_POSX, P_BOARD_POSY))
 
-
-        drawText("ENEMY", mainSurface, O_BOARD_POSX+(BOARD_WIDTH//2), O_BOARD_POSY-30, TEXT_COLOR, BACKGROUND, 'center')
+        # OPPONENT BOARD #
+        drawText("ENEMY",
+                 mainSurface,
+                 GAME_FONT,
+                 O_BOARD_POSX+(BOARD_WIDTH//2),
+                 O_BOARD_POSY-30,
+                 TEXT_COLOR,
+                 BACKGROUND,
+                 'center')
         drawBoard(mainSurface, board2, (O_BOARD_POSX, O_BOARD_POSY))
 
         pygame.display.update()
