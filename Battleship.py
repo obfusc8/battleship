@@ -85,7 +85,7 @@ try:
     s.connect((host, port))
     greeting = s.recv(1024).decode('ascii')
     print(" "+ greeting)
-    print(" "+ ("Wating for the other player to join..."))
+    print(" "+ ("Waiting for the other player to join..."))
     greeting = s.recv(1024).decode('ascii')
 
     print(" All players have joined...")
