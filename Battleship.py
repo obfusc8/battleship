@@ -8,8 +8,8 @@ from Ship import Ship
 from PrintText import PrintText
 
 ### GAME VARS ###
-server_ip = "192.168.86.38"
-#server_ip = "SAL-1908-KJ"
+#server_ip = "192.168.86.38"
+server_ip = "SAL-1908-KJ"
 isPlayer2 = False
 animate = True
 ccode_view_all = "SATELLITE"
@@ -22,17 +22,6 @@ frequency = 500  # Set Frequency To 2500 Hertz
 duration = 250  # Set Duration To 1000 ms == 1 second
 
 ### HELPER FUCTIONS ###
-def autoSet(player):
-    for i in range(1,6):
-        ship = Ship(i)
-        vert = random.randrange(2)
-        if vert == 1:
-            ship.setDirection("V")
-        success = False
-        while not success:
-            row = random.randrange(10)
-            col = random.randrange(10)
-            success = player.setShip(row, col, ship)
 
 def makeBool(x):
     if (x == "True"):
@@ -120,8 +109,6 @@ except KeyboardInterrupt:
 ### BOARD SETUP ###
 p = GameBoard()
 
-
-
 while GAMEON:
     wipe = os.system(clearscreen)
     print("\n", p)
@@ -131,7 +118,7 @@ while GAMEON:
         success = False
         while not success:
             p.reset()
-            autoSet(p)
+            p.autoSet()
             wipe = os.system(clearscreen)
             print("\n", p)
             print(" Do you like this placement? Y or N: ", end="")
@@ -150,7 +137,7 @@ while GAMEON:
                 print("\n", temp)
                 ship = Ship(i)
                 while (True):
-                    print(" Enter position for your "+ str(ship) +" ("+ str(ship.getSize()) +"): ", end="")
+                    print(" Enter position for your "+ str(ship.getName()) +" ("+ str(ship.getSize()) +"): ", end="")
                     entry = input()
                     try:
                         row = entry[0]

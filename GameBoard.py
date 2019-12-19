@@ -1,3 +1,4 @@
+import random
 from copy import copy, deepcopy
 from Ship import Ship
 
@@ -80,6 +81,12 @@ class GameBoard():
         for i in range(len(board)):
             self.o_board[i//10][i%10] = int(board[i])
 
+    def getPBoard(self):
+        return self.p_board
+
+    def getOBoard(self):
+        return self.o_board
+
     def setShip(self, r, c, ship):
         if (type(int()) != type(r)):
             r = int(self.rows[r])
@@ -102,6 +109,34 @@ class GameBoard():
             col = c + i * s.dir[s.DIR][1]
             b[row][col] = s.getID()
         return True
+
+    def autoSet(self):
+        # Board must be empty #
+        for i in range(100):
+            if (self.p_board[i//10][i%10] != 0):
+                return False
+        for i in range(1,6):
+            ship = Ship(i)
+            vert = random.randrange(2)
+            if vert == 1:
+                ship.setDirection("V")
+            success = False
+            while not success:
+                row = random.randrange(10)
+                col = random.randrange(10)
+                success = self.setShip(row, col, ship)
+        return True
+
+    def isSet(self):
+        count = 0
+        for i in range(100):
+            if (self.p_board[i//10][i%10] >= 1 and self.p_board[i//10][i%10] <= 5):
+                count += 1
+        if count == 17:
+            return True
+        else:
+            return False
+        
 
     def receiveShot(self, r, c):
         if (type(int()) != type(r)):

@@ -11,8 +11,8 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 # get local machine name
-host = "192.168.86.38"
-#host = "SAL-1908-KJ"
+#host = "192.168.86.38"
+host = "SAL-1908-KJ"
 port = 9999
 
 # bind to the port

@@ -15,7 +15,11 @@ class Ship():
                      5:2}
         self.dir = {"H":[0,1], "V":[1,0]}
 
+    """
     def __repr__(self):
+        return str(self.name[self.ID])
+    """
+    def getName(self):
         return str(self.name[self.ID])
 
     def getID(self):
@@ -26,3 +30,9 @@ class Ship():
 
     def setDirection(self, d):
         self.DIR = d
+
+    def rotate(self):
+        if self.DIR == "H":
+            self.DIR = "V"
+        else:
+            self.DIR = "H"
