@@ -20,7 +20,7 @@ BOARD_HEIGHT = BOARD_WIDTH
 
 BOARD_MARGIN = 50
 P_BOARD_POSX = SCREEN_WIDTH // 2 - BOARD_WIDTH - BOARD_MARGIN
-P_BOARD_POSY = 75
+P_BOARD_POSY = 110
 O_BOARD_POSX = SCREEN_WIDTH // 2 + BOARD_MARGIN
 O_BOARD_POSY = P_BOARD_POSY
 
@@ -436,6 +436,7 @@ class makeShip(pygame.sprite.Sprite):
 
 
 def placeShipsScreen(surf):
+
     ships = pygame.sprite.RenderPlain(())
     for i in range(1, 6):
         ship = makeShip(i)
@@ -478,10 +479,13 @@ def placeShipsScreen(surf):
 
                     for s in ships.sprites():
                         if s.rect.collidepoint(event.pos):
+                            ships.remove(s)
+                            ships.add(s)
                             dragging = s
                             mouse_x, mouse_y = event.pos
                             offset_x = s.rect.x - mouse_x
                             offset_y = s.rect.y - mouse_y
+
                 if event.button == 3:
                     for s in ships.sprites():
                         if s.rect.collidepoint(event.pos):
@@ -520,6 +524,8 @@ def placeShipsScreen(surf):
         for s in ships.sprites():
             if getBoardRC(player_board, (s.rect.x + 20, s.rect.y + 20)):
                 x, y = getBoardRC(player_board, (s.rect.x + 20, s.rect.y + 20))
+                if dragging:
+                    dragging.image.set_alpha(255)
                 if p.setShip(x, y, s.ship):
                     r, c = x, y
                     for i in range(s.ship.getSize()):
@@ -548,18 +554,27 @@ def placeShipsScreen(surf):
     return
 
 
-def launchScreen(surf, board, xy):
+def launchScreen(surf, board, xy, direction):
 
-    missile = pygame.Surface((CELL_WIDTH, CELL_WIDTH//2))
-    missile.fill(MISSILE_COLOR)
+    if direction == "Left":
+        mx_start = -40
+        bx_start = -200
+        aim = 1
+    elif direction == "Right":
+        mx_start = SCREEN_WIDTH
+        bx_start = SCREEN_WIDTH+200
+        aim = -1
 
+    missile = pygame.Surface((CELL_WIDTH//2, CELL_WIDTH//2))
+    missile.fill(BACKGROUND)
+    missile.set_colorkey(BACKGROUND)
+    pygame.draw.circle(missile, MISSILE_COLOR, (10, 10), 10)
 
     ox, oy = getBoardXY(board, xy)
     oy += 10
-    mx = -40
-    my = oy
+    mx = mx_start
     ts = pygame.time.get_ticks()
-    v = ox * 0.051
+    v = abs(ox - mx_start) * 0.0491
     t = 0
     tn = 0
 
@@ -575,6 +590,9 @@ def launchScreen(surf, board, xy):
                 sys.exit()
 
         surf.fill(BACKGROUND)
+
+        if int(10+tn*3) < SCREEN_WIDTH * 2:
+            pygame.draw.circle(surf, (100, 100, 175), (bx_start, oy), int(20+tn*3), 20)
 
         # PLAYER BOARD #
         drawText("YOU",
@@ -598,22 +616,20 @@ def launchScreen(surf, board, xy):
                  'center')
         opponent_board = drawBoard(surf, p.getOBoard(), (O_BOARD_POSX, O_BOARD_POSY), True)
 
-        pygame.draw.circle(surf, (175, 175, 175), (-200, oy), int(5+tn*3), 2)
-
         my = oy + int((-1 * (v * t)) + (0.5 * 9.8 * t ** 2))
-
-        surf.blit(missile, (mx,my))
+        surf.blit(missile, (mx, my))
 
         pygame.display.update()
 
         t += .05
-        #mx = int(mx + tn)
-        mx += 5
-        if mx > ox:
-            done = True
+        mx += 5 * aim
         tn = (pygame.time.get_ticks() - ts)
 
-    print(t, oy, ox)
+        if direction == "Left" and mx > ox:
+            done = True
+        elif direction == "Right" and ox > mx:
+            done = True
+
     return
 
 
@@ -627,7 +643,6 @@ def main():
 
     startScreen(mainSurface)
     setupScreen(mainSurface)
-    print(p.pyBoard)
 
     yourTurn = True
     done = False
@@ -646,13 +661,15 @@ def main():
 
                 if getBoardRC(player_board, pos):
                     row, col = getBoardRC(player_board, pos)
+                    # LAUNCH ANIMATION #
+                    launchScreen(mainSurface, player_board, (row, col), "Right")
                     p.receiveShot(row, col)
                     yourTurn = True
 
                 if yourTurn and getBoardRC(opponent_board, pos):
                     row, col = getBoardRC(opponent_board, pos)
                     # LAUNCH ANIMATION #
-                    launchScreen(mainSurface, opponent_board, (row, col))
+                    launchScreen(mainSurface, opponent_board, (row, col), "Left")
                     # LAUNCH ANIMATION #
                     hit = random.randrange(0, 2)
                     p.logShot(row, col, hit)
