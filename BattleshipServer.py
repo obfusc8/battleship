@@ -75,8 +75,8 @@ while UP:
             players.remove(p)
             continue
 
+   # Assign player positions and start game
    if (len(players) == 2):
-      # Assign player positions and start game
       print("2 Players connected, sending player assignments")
       for n,p in enumerate(players):
          assignment = "PLAYER " + str(n+1)

@@ -1,8 +1,18 @@
+import socket
+from tkinter import Tk, messagebox
+
 import pygame
+from pygame.compat import geterror
+import math
 import sys
+import os
 import random
 from GameBoard import GameBoard
 from Ship import Ship
+import threading
+
+main_dir = os.path.split(os.path.abspath(__file__))[0]
+data_dir = os.path.join(main_dir, "data")
 
 # DISPLAY SETTINGS #
 SCREEN_WIDTH = 1080
@@ -39,11 +49,107 @@ TEXT_COLOR = (255, 255, 255)
 # PYGAME INITIALIZATION #
 pygame.init()
 clock = pygame.time.Clock()
+error_flag = False
+player_turn = False
+player_queue = list()
+enemy_queue = list()
 
 # FONT SETTINGS #
 TITLE_FONT = pygame.font.SysFont(None, 200)
+BANNER_FONT = pygame.font.SysFont(None, 78)
 GAME_FONT = pygame.font.SysFont(None, 40)
 TEXT_FONT = pygame.font.SysFont(None, 24)
+
+# NETWORKING SETUP #
+# SERVER_IP = "192.168.86.38"
+SERVER_IP = "SAL-1908-KJ"
+PORT = 9999
+SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+EVENT_CLOSE_SOCKET = pygame.USEREVENT + 0
+EVENT_RECEIVE = pygame.USEREVENT + 1
+EVENT_SERVER_ERROR = pygame.USEREVENT + 2
+
+
+def server_thread():
+    global player_turn
+    global error_flag
+    gameon = False
+
+    try:
+        print(" Connecting to the Battleship server... ")
+        SERVER.connect((SERVER_IP, PORT))
+        greeting = SERVER.recv(1024).decode('ascii')
+        #greeting = "CONNECTED"  ######################################################
+        #pygame.time.wait(1000)  #######################################################
+        enemy_queue.insert(0, "CONNECTED")
+        print(" " + greeting)
+
+        print(" " + "Waiting for the other player to join...")
+        #greeting = "PLAYER 1"  ########################################################
+        greeting = SERVER.recv(1024).decode('ascii')
+
+        #pygame.time.wait(1000)  #######################################################
+        print(" All players have joined...")
+        if greeting.find("PLAYER 1") != -1:
+            print(" PLAYER 1 assignment")
+            enemy_queue.insert(0, "PLAYER 1")
+            player_turn = True
+        else:
+            print(" PLAYER 2 assignment ")
+            player_turn = False
+            enemy_queue.insert(0, "PLAYER 2")
+
+        gameon = True
+
+    except OSError:
+        info = "OSError: [WinError 10038] Try restarting the game..."
+        print(info)
+        error_flag = True
+    except ConnectionResetError:
+        info = "[Connection Reset Error] Try restarting the game..."
+        print(info)
+        error_flag = True
+    except ConnectionAbortedError:
+        info = "[Connection Aborted Error] Try restarting the game..."
+        print(info)
+        error_flag = True
+    except ConnectionRefusedError:
+        info = "[Connection Refused Error] Try restarting the game..."
+        print(info)
+        print(" If this continues to occur, restart the Battleship server")
+        error_flag = True
+    except KeyboardInterrupt:
+        info = "[Keyboard Interrupt] Restart the game..."
+        print(info)
+        error_flag = True
+
+    print("Starting the game...")
+    while gameon:
+
+        print("Waiting for info from server")
+        try:
+            comm = SERVER.recv(1024).decode('ascii')
+        except OSError:
+            break
+        if not comm:
+            info = "SORRY! Server connection lost..."
+            print(info)
+            error_flag = True
+            gameon = False
+            break
+        print("Received:", comm)
+        print("Posting event")
+        enemy_queue.insert(0, comm) ##### UNCOMMENT TO GET INFO FROM ENEMY
+
+        for event in pygame.event.get(EVENT_CLOSE_SOCKET):
+            if event.type == EVENT_CLOSE_SOCKET:
+                print("THREAD: EVENT CLOSE DETECTED")
+                gameon = False
+                break
+
+    SERVER.close() ########## UNCOMMENT
+    print("Thread FINISHED")
+    return
 
 
 class PyGameBoard(GameBoard):
@@ -78,9 +184,9 @@ class PyGameBoard(GameBoard):
                 success = self.setShip(row, col, s.ship)
                 if success:
                     for x in range(s.ship.getSize()):
-                        temp = s.image.subsurface(s.ship.dir[s.ship.DIR][1] * x * CELL_WIDTH,
-                                                  s.ship.dir[s.ship.DIR][0] * x * CELL_WIDTH,
-                                                  CELL_WIDTH, CELL_WIDTH).copy()
+                        temp = s.image.subsurface((s.ship.dir[s.ship.DIR][1] * x * CELL_WIDTH,
+                                                   s.ship.dir[s.ship.DIR][0] * x * CELL_WIDTH,
+                                                   CELL_WIDTH, CELL_WIDTH)).copy()
                         temp.set_alpha(255)
                         self.pyBoard[row][col] = temp
                         row += s.ship.dir[s.ship.DIR][0]
@@ -126,6 +232,32 @@ XXXXXXXXXX
 XXXXXXXXXX
 XXXXXXXXXX
 """
+
+
+def load_sound(name):
+    class NoneSound:
+        def play(self):
+            pass
+
+    if not pygame.mixer or not pygame.mixer.get_init():
+        return NoneSound()
+    fullname = os.path.join(data_dir, name)
+    try:
+        sound = pygame.mixer.Sound(fullname)
+    except pygame.error:
+        print("Cannot load sound: %s" % fullname)
+        raise SystemExit(str(geterror()))
+    return sound
+
+
+fire_sound = load_sound("fire.wav")
+boom_sound = load_sound("boom.wav")
+splash_sound = load_sound("splash.wav")
+start_music = load_sound("start.wav")
+lose_sound = load_sound("lose.wav")
+win_sound = load_sound("win.wav")
+warning_sound = load_sound("warning.wav")
+fart_sound = load_sound("fart.wav")
 
 
 def makeHitSurf():
@@ -243,9 +375,12 @@ def drawBoard(screen, board, xy, opponent=False):
 
             if 1 <= board[row][col] <= 5:
                 if opponent:
-                    image.blit(p.pyBoard[row][col], (x, y))
+                    pygame.draw.rect(image, SHIP_LIGHT, [x, y, CELL_WIDTH, CELL_WIDTH])
+                    #image.blit(p.pyBoard[row][col], (x, y))
 
             if board[row][col] == 7:
+                if opponent:
+                    pygame.draw.rect(image, SHIP_LIGHT, [x, y, CELL_WIDTH, CELL_WIDTH])
                 image.blit(BOARD_HIT_SURF, (x, y))
                 # pygame.draw.rect(image, HIT_COLOR, [x, y, CELL_WIDTH, CELL_WIDTH])
             elif board[row][col] == 6:
@@ -258,10 +393,13 @@ def drawBoard(screen, board, xy, opponent=False):
 
 # SCENE FUNCTIONS #
 def startScreen(surf):
+    global enemy_queue, player_turn
     surf.fill(BACKGROUND)
 
     ready = False
     connected = False
+    alljoined = False
+    servererror = False
     while not ready:
         clock.tick(FRAMERATE)
 
@@ -272,53 +410,63 @@ def startScreen(surf):
                 pygame.quit()
                 sys.exit()
 
-            if connected == True and \
-                    (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                ready = True
+            #if error_flag and (event.type == pygame.KEYDOWN and event.key == pygame.K_r):
+            #    return False
 
-        if not connected:
-            delay = 200
-        else:
-            delay = 0
+            if not error_flag and alljoined and \
+                    ((event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or \
+                     event.type == pygame.MOUSEBUTTONDOWN):
+                return True
+
+        # process enemy queue for connection status
+        if not ready and len(enemy_queue) != 0:
+            if enemy_queue[-1] == "CONNECTED":
+                connected = True
+                enemy_queue.pop(-1)
+            elif enemy_queue[-1].find("PLAYER") != -1:
+                enemy_queue.pop(-1)
+                alljoined = True
 
         drawText("BATTLESHIP",
                  surf, TITLE_FONT,
                  SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4,
                  TEXT_COLOR, BACKGROUND, 'center')
+
         temp = drawText("Connecting to the battleship server...",
                         surf, TEXT_FONT,
                         SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
                         TEXT_COLOR, BACKGROUND, 'center')
-        pygame.display.update()
-        pygame.time.delay(delay)
-        temp = drawText("Connected!",
-                        surf, TEXT_FONT,
-                        SCREEN_WIDTH // 2, temp.y + temp.height + 5,
-                        TEXT_COLOR, BACKGROUND, 'center')
-        pygame.display.update()
-        pygame.time.delay(delay)
-        temp = drawText("Waiting for the other player to join...",
-                        surf, TEXT_FONT,
-                        SCREEN_WIDTH // 2, temp.y + temp.height + 5,
-                        TEXT_COLOR, BACKGROUND, 'center')
-        pygame.display.update()
-        pygame.time.delay(delay)
-        temp = drawText("All players have joined...",
-                        surf, TEXT_FONT,
-                        SCREEN_WIDTH // 2, temp.y + temp.height + 5,
-                        TEXT_COLOR, BACKGROUND, 'center')
-        pygame.display.update()
-        pygame.time.delay(delay)
-        temp = drawText("You are PLAYER 1: Press ENTER to continue...",
-                        surf, TEXT_FONT,
-                        SCREEN_WIDTH // 2, temp.y + temp.height + 5,
-                        TEXT_COLOR, BACKGROUND, 'center')
-        connected = True
+
+        if connected:
+            temp = drawText("Connected!",
+                            surf, TEXT_FONT,
+                            SCREEN_WIDTH // 2, temp.y + temp.height + 5,
+                            TEXT_COLOR, BACKGROUND, 'center')
+
+            temp = drawText("Waiting for the other player to join...",
+                            surf, TEXT_FONT,
+                            SCREEN_WIDTH // 2, temp.y + temp.height + 5,
+                            TEXT_COLOR, BACKGROUND, 'center')
+
+        if alljoined:
+            temp = drawText("All players have joined",
+                            surf, TEXT_FONT,
+                            SCREEN_WIDTH // 2, temp.y + temp.height + 5,
+                            TEXT_COLOR, BACKGROUND, 'center')
+
+            temp = drawText("Press ENTER to continue",
+                            surf, TEXT_FONT,
+                            SCREEN_WIDTH // 2, temp.y + temp.height + 5,
+                            TEXT_COLOR, BACKGROUND, 'center')
+        if error_flag:
+            temp = drawText("[SERVER ERROR]: Please close window and restart the game",
+                            surf, TEXT_FONT,
+                            SCREEN_WIDTH // 2, temp.y + temp.height + 5,
+                            TEXT_COLOR, BACKGROUND, 'center')
 
         pygame.display.update()
 
-    return
+    return True
 
 
 def setupScreen(surf):
@@ -406,6 +554,7 @@ def setupScreen(surf):
         player_board = drawBoard(surf, p.getPBoard(), (P_BOARD_POSX, P_BOARD_POSY))
 
         pygame.display.update()
+
     return
 
 
@@ -436,7 +585,6 @@ class makeShip(pygame.sprite.Sprite):
 
 
 def placeShipsScreen(surf):
-
     ships = pygame.sprite.RenderPlain(())
     for i in range(1, 6):
         ship = makeShip(i)
@@ -554,7 +702,13 @@ def placeShipsScreen(surf):
     return
 
 
-def launchScreen(surf, board, xy, direction):
+def launchScreen(surf, board, xy):
+    fire_sound.play()
+
+    if board.x > SCREEN_WIDTH // 2:
+        direction = "Left"
+    else:
+        direction = "Right"
 
     if direction == "Left":
         mx_start = -40
@@ -562,10 +716,10 @@ def launchScreen(surf, board, xy, direction):
         aim = 1
     elif direction == "Right":
         mx_start = SCREEN_WIDTH
-        bx_start = SCREEN_WIDTH+200
+        bx_start = SCREEN_WIDTH + 200
         aim = -1
 
-    missile = pygame.Surface((CELL_WIDTH//2, CELL_WIDTH//2))
+    missile = pygame.Surface((CELL_WIDTH // 2, CELL_WIDTH // 2))
     missile.fill(BACKGROUND)
     missile.set_colorkey(BACKGROUND)
     pygame.draw.circle(missile, MISSILE_COLOR, (10, 10), 10)
@@ -591,30 +745,10 @@ def launchScreen(surf, board, xy, direction):
 
         surf.fill(BACKGROUND)
 
-        if int(10+tn*3) < SCREEN_WIDTH * 2:
-            pygame.draw.circle(surf, (100, 100, 175), (bx_start, oy), int(20+tn*3), 20)
+        if int(10 + tn * 3) < SCREEN_WIDTH * 2:
+            pygame.draw.circle(surf, (100, 100, 175), (bx_start, oy), int(20 + tn * 3), 20)
 
-        # PLAYER BOARD #
-        drawText("YOU",
-                 surf,
-                 GAME_FONT,
-                 P_BOARD_POSX + (BOARD_WIDTH // 2),
-                 P_BOARD_POSY - 30,
-                 TEXT_COLOR,
-                 BACKGROUND,
-                 'center')
-        player_board = drawBoard(surf, p.getPBoard(), (P_BOARD_POSX, P_BOARD_POSY))
-
-        # OPPONENT BOARD #
-        drawText("ENEMY",
-                 surf,
-                 GAME_FONT,
-                 O_BOARD_POSX + (BOARD_WIDTH // 2),
-                 O_BOARD_POSY - 30,
-                 TEXT_COLOR,
-                 BACKGROUND,
-                 'center')
-        opponent_board = drawBoard(surf, p.getOBoard(), (O_BOARD_POSX, O_BOARD_POSY), True)
+        player_board, opponent_board = drawBoards(surf)
 
         my = oy + int((-1 * (v * t)) + (0.5 * 9.8 * t ** 2))
         surf.blit(missile, (mx, my))
@@ -627,100 +761,469 @@ def launchScreen(surf, board, xy, direction):
 
         if direction == "Left" and mx > ox:
             done = True
-        elif direction == "Right" and ox > mx:
+        elif direction == "Right" and ox + 10 > mx:
             done = True
 
     return
 
 
-def main():
-    mainSurface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+class HitPixel(pygame.sprite.Sprite):
 
-    flashSurface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-    flashSurface.fill(FLASH_COLOR)
+    def __init__(self, x=0, y=0):
 
-    pygame.display.set_caption('BATTLESHIP')
+        PIXEL_COLORS = [(255, 0, 0), (255, 255, 0), (255, 153, 51), SHIP_DARK, SHIP_LIGHT]
 
-    startScreen(mainSurface)
-    setupScreen(mainSurface)
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.Surface((random.randrange(5, 10), random.randrange(5, 10)))
+        self.image.fill(random.choice(PIXEL_COLORS))
+        self.rect = self.image.get_rect()
+        self.angle = random.random() * (2 * math.pi)
+        self.rect.center = (x, y)
+        self.speed = random.random() * 20
+        self.image.set_alpha(255)
 
-    yourTurn = True
+    def update(self, *args):
+        if self.rect.x > SCREEN_WIDTH - self.image.get_width() or self.rect.x < 0:
+            self.angle = math.pi - self.angle
+        if self.rect.y > SCREEN_HEIGHT - self.image.get_height() or self.rect.y < 0:
+            self.angle *= -1
+        self.rect.centerx += int(self.speed * math.cos(self.angle))
+        self.rect.centery += int(self.speed * math.sin(self.angle))
+        self.image.set_alpha(self.image.get_alpha() - 2)
+        if self.image.get_alpha() <= 0:
+            self.kill()
+            del self
+
+
+def hitAnimation(surf, board, xy):
+    boom_sound.play()
+
+    x, y = getBoardXY(board, xy)
+    pixels = pygame.sprite.RenderPlain(())
+    for i in range(200):
+        pixels.add(HitPixel(x + 20, y + 20))
+
     done = False
-    alpha = 0
-    direction = 1
     while not done:
         clock.tick(FRAMERATE)
 
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
-                done = True
+                ########### SHUTDOWN EVERYTHING ###########
+                pygame.quit()
+                sys.exit()
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
+        surf.fill(BACKGROUND)
 
-                if getBoardRC(player_board, pos):
-                    row, col = getBoardRC(player_board, pos)
-                    # LAUNCH ANIMATION #
-                    launchScreen(mainSurface, player_board, (row, col), "Right")
-                    p.receiveShot(row, col)
-                    yourTurn = True
+        player_board, opponent_board = drawBoards(surf)
 
-                if yourTurn and getBoardRC(opponent_board, pos):
-                    row, col = getBoardRC(opponent_board, pos)
-                    # LAUNCH ANIMATION #
-                    launchScreen(mainSurface, opponent_board, (row, col), "Left")
-                    # LAUNCH ANIMATION #
-                    hit = random.randrange(0, 2)
-                    p.logShot(row, col, hit)
-                    yourTurn = False
-
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                    yourTurn = True
-
-        # If a hit was registered #
-        # hitAnimation(mainSurface)
-
-        # IF game is over
-        # finalScreen(mainSurface)
-        # QUIT
-
-        # If it is players turn #
-        if yourTurn:
-            alpha += direction
-            if alpha % 100 == 0: direction *= -1
-        else:
-            alpha = 0
-            direction = 1
-
-        mainSurface.fill(BACKGROUND)
-
-        flashSurface.set_alpha(alpha)
-        mainSurface.blit(flashSurface, (0, 0))
-
-        # PLAYER BOARD #
-        drawText("YOU",
-                 mainSurface,
-                 GAME_FONT,
-                 P_BOARD_POSX + (BOARD_WIDTH // 2),
-                 P_BOARD_POSY - 30,
-                 TEXT_COLOR,
-                 BACKGROUND,
-                 'center')
-        player_board = drawBoard(mainSurface, p.getPBoard(), (P_BOARD_POSX, P_BOARD_POSY))
-
-        # OPPONENT BOARD #
-        drawText("ENEMY",
-                 mainSurface,
-                 GAME_FONT,
-                 O_BOARD_POSX + (BOARD_WIDTH // 2),
-                 O_BOARD_POSY - 30,
-                 TEXT_COLOR,
-                 BACKGROUND,
-                 'center')
-        opponent_board = drawBoard(mainSurface, p.getOBoard(), (O_BOARD_POSX, O_BOARD_POSY), True)
+        pixels.update()
+        pixels.draw(surf)
+        if len(pixels) == 0:
+            done = True
 
         pygame.display.update()
+
+    return
+
+
+class MissPixel(pygame.sprite.Sprite):
+
+    def __init__(self, x=0, y=0, hit=True):
+        PIXEL_COLORS = [(51, 51, 255), (102, 204, 255), (255, 255, 255)]
+
+        pygame.sprite.Sprite.__init__(self)
+        self.width = 20
+        self.height = 20
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill((0, 0, 0))
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.color = random.choice(PIXEL_COLORS)
+        self.speed = random.randrange(1, 8)
+        self.alpha = 255
+
+    def update(self, *args):
+        self.width += self.speed
+        self.height += self.speed
+        self.alpha -= 7
+        xy = self.rect.center
+        self.image = pygame.Surface((self.width, self.height))
+        self.image.fill((0, 0, 0))
+        self.image.set_colorkey((0, 0, 0))
+        pygame.draw.circle(self.image, self.color, (self.width // 2, self.height // 2), self.height // 2, 1)
+        self.rect = self.image.get_rect()
+        self.rect.center = xy
+        self.image.set_alpha(max(0, self.alpha))
+        if self.alpha < 0:
+            self.kill()
+            del self
+
+
+def missAnimation(surf, board, xy):
+    if random.randrange(0, 10) == 0:
+        fart_sound.play()
+    else:
+        splash_sound.play()
+
+    x, y = getBoardXY(board, xy)
+    pixels = pygame.sprite.RenderPlain(())
+    for i in range(7):
+        pixels.add(MissPixel(x + 20, y + 20))
+
+    done = False
+    while not done:
+        clock.tick(FRAMERATE)
+
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                ########### SHUTDOWN EVERYTHING ###########
+                pygame.quit()
+                sys.exit()
+
+        surf.fill(BACKGROUND)
+
+        player_board, opponent_board = drawBoards(surf)
+
+        pixels.update()
+        pixels.draw(surf)
+
+        if len(pixels) == 0:
+            done = True
+
+        pygame.display.update()
+
+    return
+
+
+def finalAnimation(surf, board, win=True):
+    if win:
+        show_board = p.o_board
+        banner_color1 = (0, 153, 51)
+        banner_color2 = (0, 100, 0)
+        text = "YOU ARE VICTORIOUS"
+        music = win_sound
+    else:
+        show_board = p.p_board
+        banner_color1 = (204, 51, 0)
+        banner_color2 = (153, 0, 0)
+        text = "YOU HAVE BEEN DEFEATED"
+        music = lose_sound
+
+    banner = pygame.Surface((SCREEN_WIDTH, 100))
+    banner.fill(banner_color1)
+    image = pygame.draw.rect(banner, banner_color2, (0, 20, SCREEN_WIDTH, 60))
+    drawText(text,
+             banner,
+             BANNER_FONT,
+             SCREEN_WIDTH // 2,
+             25,
+             TEXT_COLOR,
+             banner_color2,
+             'center')
+
+    ts = pygame.time.get_ticks()
+    count = 0
+
+    bombs = list()
+    for i in range(100):
+        if show_board[i // 10][i % 10] == 7:
+            pixels = pygame.sprite.RenderPlain(())
+            x, y = getBoardXY(board, (i // 10, i % 10))
+            for j in range(100):
+                pixels.add(HitPixel(x + 20, y + 20))
+            bombs.append(pixels)
+
+    done = False
+    complete = False
+    while not done:
+        clock.tick(FRAMERATE)
+
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                ########### SHUTDOWN EVERYTHING ###########
+                pygame.quit()
+                sys.exit()
+
+            if complete and event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+                return False
+                #if event.key == pygame.K_r:
+                    # play again
+                #    return True
+                #elif event.key == pygame.K_q:
+                    # quit
+                #    return False
+
+        surf.fill(BACKGROUND)
+
+        player_board, opponent_board = drawBoards(surf)
+
+        if count <= len(bombs) and count < (pygame.time.get_ticks() - ts) // 250:
+            count += 1
+            fire_sound.play()
+            if count == len(bombs):
+                boom_sound.play()
+                music.play()
+                complete = True
+
+        for b in range(min(count, len(bombs))):
+            bombs[b].update()
+            bombs[b].draw(surf)
+
+        if complete:
+            temp = surf.blit(banner, (0, O_BOARD_POSY + BOARD_HEIGHT + 50))
+            drawText("Q = QUIT",
+                     surf,
+                     TEXT_FONT,
+                     SCREEN_WIDTH // 2,
+                     temp.bottom + 20,
+                     TEXT_COLOR,
+                     banner_color2,
+                     'center')
+
+        pygame.display.update()
+
+    return
+
+
+def drawBoards(surf, player=None):
+
+    if player is None:
+        player = p
+
+    drawText("BATTLESHIP",
+             surf,
+             BANNER_FONT,
+             SCREEN_WIDTH // 2,
+             10,
+             SHIP_LIGHT,
+             BACKGROUND,
+             'center')
+
+    # PLAYER BOARD #
+    drawText("YOU",
+             surf,
+             GAME_FONT,
+             P_BOARD_POSX + (BOARD_WIDTH // 2),
+             P_BOARD_POSY - 30,
+             TEXT_COLOR,
+             BACKGROUND,
+             'center')
+    player_board = drawBoard(surf, player.getPBoard(), (P_BOARD_POSX, P_BOARD_POSY))
+
+    # OPPONENT BOARD #
+    drawText("ENEMY",
+             surf,
+             GAME_FONT,
+             O_BOARD_POSX + (BOARD_WIDTH // 2),
+             O_BOARD_POSY - 30,
+             TEXT_COLOR,
+             BACKGROUND,
+             'center')
+    opponent_board = drawBoard(surf, player.getOBoard(), (O_BOARD_POSX, O_BOARD_POSY), True)
+
+    return player_board, opponent_board
+
+
+def main():
+    global player_turn, enemy_queue, player_queue, error_flag
+    mainSurface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    flashSurface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+    pygame.display.set_caption('BATTLESHIP')
+
+    restart = True
+    while restart:
+
+        # RESET GAME ELEMENTS #
+        flashSurface.fill(FLASH_COLOR)
+        p.reset()
+        enemy_queue.clear()
+        player_queue.clear()
+        error_flag = False
+        player_turn = False
+        thread = threading.Thread(target=server_thread, daemon=True)
+        thread.start()
+
+        # PLAYER SETUP #
+        start_music.stop()
+        start_music.play(-1)
+        success = startScreen(mainSurface)
+        if not success:
+            continue
+        setupScreen(mainSurface)
+        start_music.stop()
+
+        # GAME LOOP SETUP #
+        warned = False
+        alpha = 0
+        direction = 1
+        has_lost = False
+        has_won = False
+        prow = None
+        pcol = None
+        done = False
+
+        while not done:
+            clock.tick(FRAMERATE)
+
+            for event in pygame.event.get():
+
+                if event.type == pygame.QUIT:
+                    restart = False
+                    done = True
+
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_EQUALS:
+                    SERVER.send("NUKE".encode('ascii'))  ###############################
+                    has_won = True
+                    player_turn = False
+                #    error_flag = True
+                #    p.takeHit()
+
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_s:
+                    enemy_queue.insert(0, "99")
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    pos = pygame.mouse.get_pos()
+
+                    if player_turn and getBoardRC(opponent_board, pos):
+                        prow, pcol = getBoardRC(opponent_board, pos)
+                        ############# SEND LAUNCH TO ENEMY
+                        SERVER.send((str(prow)+str(pcol)).encode('ascii'))
+                        # LAUNCH ANIMATION #
+                        launchScreen(mainSurface, opponent_board, (prow, pcol))
+                        player_turn = False
+
+                    """
+                    if getBoardRC(player_board, pos):
+                        row, col = getBoardRC(player_board, pos)
+                        # LAUNCH ANIMATION #
+                        launchScreen(mainSurface, player_board, (row, col))
+                        hit = p.receiveShot(row, col)
+                        if hit:
+                            if p.shipsRemaining() != 0:
+                                hitAnimation(mainSurface, player_board, (row, col))
+                        else:
+                            missAnimation(mainSurface, player_board, (row, col))
+                        player_turn = True
+                    """
+            if error_flag:
+                Tk().wm_withdraw()  # to hide the main window
+                messagebox.showerror('Server Error', 'Sorry! Please restart the game')
+                break
+
+            has_lost = p.hasLost()
+            if has_lost:
+                SERVER.send(p.sendBoard().encode('ascii')) ###############################
+                SERVER.send(p.sendBoard().encode('ascii'))  ##################################
+
+            has_won = p.isWin()
+            if has_won:
+                SERVER.send(p.sendBoard().encode('ascii'))  ##################################
+
+            # alarm on last shot #
+            if p.shipsRemaining() == 1 and not warned:
+                warned = True
+                flashSurface.fill((255, 0, 0))
+                warning_sound.play(-1)
+
+            # If it is players turn #
+            if player_turn or warned:
+                alpha += direction
+                if alpha % 100 == 0:
+                    direction *= -1
+            else:
+                alpha = 0
+                direction = 1
+
+            mainSurface.fill(BACKGROUND)
+
+            flashSurface.set_alpha(alpha)
+            mainSurface.blit(flashSurface, (0, 0))
+
+            player_board, opponent_board = drawBoards(mainSurface)
+
+            drawText("READY TO FIRE",
+                     mainSurface, BANNER_FONT,
+                     SCREEN_WIDTH // 2, player_board.bottom + 50,
+                     BACKGROUND, BACKGROUND, 'center')
+
+            pygame.display.update()
+
+            # process enemy queue
+            if not player_turn and len(enemy_queue) != 0:
+                data = enemy_queue[-1]
+
+                # IF CHEAT?
+                if data == "NUKE":
+                    p.nuke()
+                    enemy_queue.pop(-1)
+
+                # IF SHOT
+                elif len(data) == 2:
+                    row = int(data[0])
+                    col = int(data[1])
+                    hit = p.copy().receiveShot(row, col)
+                    ############# SEND HIT TO ENEMY
+                    SERVER.send(str(hit).encode('ascii')) ########################################
+                    launchScreen(mainSurface, player_board, (row, col))
+                    hit = p.receiveShot(row, col)
+                    if hit:
+                        if p.shipsRemaining() != 0:
+                            hitAnimation(mainSurface, player_board, (row, col))
+                    else:
+                        missAnimation(mainSurface, player_board, (row, col))
+                    player_turn = True
+                    enemy_queue.pop(-1)
+
+                # IF HIT
+                elif data == "True" or data == "False" and (prow is not None and pcol is not None):
+                    if data == "True":
+                        hit = True
+                    else:
+                        hit = False
+                    p.logShot(prow, pcol, hit)
+                    if hit:
+                        hitAnimation(mainSurface, opponent_board, (prow, pcol))
+                    else:
+                        missAnimation(mainSurface, opponent_board, (prow, pcol))
+                    enemy_queue.pop(-1)
+
+                # IF RAW BOARD
+                elif len(data) == 100:
+                    print("BOARD RECEIVED")
+                    p.receiveBoard(data)
+                    enemy_queue.pop(-1)
+                    continue
+
+            # END PROCESS ENEMY QUEUE
+
+            # Check if game won/lost
+            if has_lost or has_won:
+                warning_sound.stop()
+                if has_won:
+                    board = opponent_board
+                if has_lost:
+                    board = player_board
+                play_again = finalAnimation(mainSurface, board, has_won)
+                done = True
+                #if not play_again:
+                #    restart = False
+                restart = False
+
+        # Kill the server thread before closing
+        print("Posting EVENT_CLOSE_SOCKET event")
+        try:
+            SERVER.shutdown(socket.SHUT_WR)
+            SERVER.close()
+        except OSError:
+            pass
+        pygame.event.post(pygame.event.Event(EVENT_CLOSE_SOCKET))
+        thread.join()
 
     pygame.quit()
     sys.exit()

@@ -87,6 +87,13 @@ class GameBoard():
     def getOBoard(self):
         return self.o_board
 
+    def shipsRemaining(self):
+        count = 0
+        for i in range(100):
+            if 1 <= self.p_board[i//10][i%10] <= 5:
+                count += 1
+        return count
+
     def setShip(self, r, c, ship):
         if (type(int()) != type(r)):
             r = int(self.rows[r])
@@ -208,6 +215,13 @@ class GameBoard():
             if (self.p_board[i//10][i%10] >= 1 and self.p_board[i//10][i%10] <= 5):
                 labels = list(self.rows)
                 return labels[i//10]+str(i%10)
+        return False
+
+    def takeHit(self):
+        for i in range(100):
+            if (self.p_board[i//10][i%10] >= 1 and self.p_board[i//10][i%10] <= 5):
+                self.p_board[i//10][i%10] = 7
+                return True
         return False
 
     def nuke(self):
