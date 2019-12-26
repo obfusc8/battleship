@@ -1,6 +1,5 @@
 import socket
 from tkinter import Tk, messagebox
-
 import pygame
 from pygame.compat import geterror
 import math
@@ -10,6 +9,9 @@ import random
 from GameBoard import GameBoard
 from Ship import Ship
 import threading
+
+if getattr(sys, 'frozen', False):
+    os.chdir(os.path.dirname(sys.executable))
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 data_dir = os.path.join(main_dir, "data")
@@ -1079,13 +1081,7 @@ def main():
 
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_EQUALS:
                     SERVER.send("NUKE".encode('ascii'))  ###############################
-                    has_won = True
                     player_turn = False
-                #    error_flag = True
-                #    p.takeHit()
-
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_s:
-                    enemy_queue.insert(0, "99")
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
@@ -1098,19 +1094,6 @@ def main():
                         launchScreen(mainSurface, opponent_board, (prow, pcol))
                         player_turn = False
 
-                    """
-                    if getBoardRC(player_board, pos):
-                        row, col = getBoardRC(player_board, pos)
-                        # LAUNCH ANIMATION #
-                        launchScreen(mainSurface, player_board, (row, col))
-                        hit = p.receiveShot(row, col)
-                        if hit:
-                            if p.shipsRemaining() != 0:
-                                hitAnimation(mainSurface, player_board, (row, col))
-                        else:
-                            missAnimation(mainSurface, player_board, (row, col))
-                        player_turn = True
-                    """
             if error_flag:
                 Tk().wm_withdraw()  # to hide the main window
                 messagebox.showerror('Server Error', 'Sorry! Please restart the game')
@@ -1119,7 +1102,6 @@ def main():
             has_lost = p.hasLost()
             if has_lost:
                 SERVER.send(p.sendBoard().encode('ascii')) ###############################
-                SERVER.send(p.sendBoard().encode('ascii'))  ##################################
 
             has_won = p.isWin()
             if has_won:
@@ -1199,11 +1181,10 @@ def main():
                     p.receiveBoard(data)
                     enemy_queue.pop(-1)
                     continue
-
             # END PROCESS ENEMY QUEUE
 
             # Check if game won/lost
-            if has_lost or has_won:
+            if (has_lost or has_won) and p.oBoardIsKnown():
                 warning_sound.stop()
                 if has_won:
                     board = opponent_board

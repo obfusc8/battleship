@@ -87,6 +87,16 @@ class GameBoard():
     def getOBoard(self):
         return self.o_board
 
+    def oBoardIsKnown(self):
+        count = 0
+        for i in range(100):
+            if self.o_board[i//10][i%10] == 0:
+                count += 1
+        if count == 83:
+            return True
+        else:
+            return False
+
     def shipsRemaining(self):
         count = 0
         for i in range(100):
