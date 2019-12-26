@@ -669,6 +669,24 @@ def placeShipsScreen(surf):
 
         ships.draw(surf)
 
+        drawText("Drag your ships onto the grid",
+                 surf,
+                 TEXT_FONT,
+                 800,
+                 player_board.bottom - 60,
+                 TEXT_COLOR,
+                 BACKGROUND,
+                 'center')
+
+        drawText("Right-click to rotate",
+                 surf,
+                 TEXT_FONT,
+                 800,
+                 player_board.bottom - 30,
+                 TEXT_COLOR,
+                 BACKGROUND,
+                 'center')
+
         # INTERACTIVE PLACEMENT #
         p.reset()
         for s in ships.sprites():
