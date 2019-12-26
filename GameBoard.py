@@ -90,7 +90,7 @@ class GameBoard():
     def oBoardIsKnown(self):
         count = 0
         for i in range(100):
-            if self.o_board[i//10][i%10] == 0:
+            if self.o_board[i//10][i%10] == 0 or self.o_board[i//10][i%10] == 6:
                 count += 1
         if count == 83:
             return True

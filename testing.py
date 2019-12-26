@@ -1,4 +1,6 @@
 import random
+import sys
+
 import pygame
 import math
 import time
@@ -40,6 +42,9 @@ pygame.init()
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
+if len(sys.argv) > 1:
+    print(type(sys.argv[1]))
+
 pixels = pygame.sprite.RenderPlain(())
 posx = SCREEN_WIDTH // 2
 posy = SCREEN_HEIGHT // 2
@@ -61,9 +66,6 @@ while not done:
                     x, y = pygame.mouse.get_pos()
                     pixels.add(Pixel(x, y))
 
-        if event.type == MY_EVENT:
-            print(event.temp)
-
     # Movement #
     pixels.update()
 
@@ -73,9 +75,5 @@ while not done:
     pixels.draw(screen)
 
     pygame.display.update()
-
-    if pygame.time.get_ticks() - ts > 5000:
-        ts = pygame.time.get_ticks()
-        pygame.event.post(pygame.event.Event(MY_EVENT, temp="MY EVENT WORKED"))
 
 pygame.quit()
