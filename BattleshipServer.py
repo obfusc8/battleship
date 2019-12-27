@@ -78,6 +78,16 @@ def gameThread(sender, receiver):
             except:
                 pass
             break
+        except OSError:
+            print("[OSError] Connection lost from player!")
+            ### END GAME ###
+            GAMEON = False
+            try:
+                sender.close()
+                receiver.close()
+            except:
+                pass
+            break
         except PlayerError:
             print("[PlayerError] Connection lost from player!")
             ### END GAME ###
