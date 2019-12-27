@@ -11,6 +11,9 @@ from Ship import Ship
 import threading
 
 if getattr(sys, 'frozen', False):
+    os.chdir(sys._MEIPASS)
+
+if getattr(sys, 'frozen', False):
     os.chdir(os.path.dirname(sys.executable))
 
 main_dir = os.path.split(os.path.abspath(__file__))[0]
@@ -57,17 +60,17 @@ player_queue = list()
 enemy_queue = list()
 
 # FONT SETTINGS #
-TITLE_FONT = pygame.font.SysFont(None, 200)
-BANNER_FONT = pygame.font.SysFont(None, 78)
-GAME_FONT = pygame.font.SysFont(None, 40)
-TEXT_FONT = pygame.font.SysFont(None, 24)
+TITLE_FONT = pygame.font.Font(os.path.join(data_dir, "freesansbold.ttf"), 160)
+BANNER_FONT = pygame.font.Font(os.path.join(data_dir, "freesansbold.ttf"), 52)
+GAME_FONT = pygame.font.Font(os.path.join(data_dir, "freesansbold.ttf"), 30)
+TEXT_FONT = pygame.font.Font(os.path.join(data_dir, "freesansbold.ttf"), 18)
 
 # NETWORKING SETUP #
 if len(sys.argv) > 1:
     SERVER_IP = sys.argv[1]
 else:
     SERVER_IP = "192.168.86.38"
-    SERVER_IP = "SAL-1908-KJ"
+    #SERVER_IP = "SAL-1908-KJ"
 PORT = 9999
 SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 EVENT_CLOSE_SOCKET = pygame.USEREVENT + 0
@@ -324,7 +327,7 @@ def makeButton(text, fg, bg, width):
     button.fill(bg)
     drawText(text,
              button, GAME_FONT,
-             width // 2, 8,
+             width // 2, 0,
              fg, bg, 'center')
     return button
 
@@ -552,7 +555,7 @@ def setupScreen(surf):
                  surf,
                  GAME_FONT,
                  P_BOARD_POSX + (BOARD_WIDTH // 2),
-                 P_BOARD_POSY - 30,
+                 P_BOARD_POSY - 35,
                  TEXT_COLOR,
                  BACKGROUND,
                  'center')
@@ -663,7 +666,7 @@ def placeShipsScreen(surf):
                  surf,
                  GAME_FONT,
                  P_BOARD_POSX + (BOARD_WIDTH // 2),
-                 P_BOARD_POSY - 30,
+                 P_BOARD_POSY - 35,
                  TEXT_COLOR,
                  BACKGROUND,
                  'center')
@@ -943,7 +946,7 @@ def finalAnimation(surf, board, win=True):
              banner,
              BANNER_FONT,
              SCREEN_WIDTH // 2,
-             25,
+             15,
              TEXT_COLOR,
              banner_color2,
              'center')
@@ -1022,7 +1025,7 @@ def drawBoards(surf, player=None):
              surf,
              BANNER_FONT,
              SCREEN_WIDTH // 2,
-             10,
+             5,
              SHIP_LIGHT,
              BACKGROUND,
              'center')
@@ -1032,7 +1035,7 @@ def drawBoards(surf, player=None):
              surf,
              GAME_FONT,
              P_BOARD_POSX + (BOARD_WIDTH // 2),
-             P_BOARD_POSY - 30,
+             P_BOARD_POSY - 35,
              TEXT_COLOR,
              BACKGROUND,
              'center')
@@ -1043,7 +1046,7 @@ def drawBoards(surf, player=None):
              surf,
              GAME_FONT,
              O_BOARD_POSX + (BOARD_WIDTH // 2),
-             O_BOARD_POSY - 30,
+             O_BOARD_POSY - 35,
              TEXT_COLOR,
              BACKGROUND,
              'center')
@@ -1155,7 +1158,7 @@ def main():
 
             drawText("READY TO FIRE",
                      mainSurface, BANNER_FONT,
-                     SCREEN_WIDTH // 2, player_board.bottom + 50,
+                     SCREEN_WIDTH // 2, player_board.bottom + 45,
                      BACKGROUND, BACKGROUND, 'center')
 
             pygame.display.update()
