@@ -70,7 +70,7 @@ if len(sys.argv) > 1:
     SERVER_IP = sys.argv[1]
 else:
     SERVER_IP = "192.168.86.38"
-    #SERVER_IP = "SAL-1908-KJ"
+    # SERVER_IP = "SAL-1908-KJ"
 PORT = 9999
 SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 EVENT_CLOSE_SOCKET = pygame.USEREVENT + 0
@@ -87,16 +87,12 @@ def server_thread():
         print(" Connecting to the Battleship server... ")
         SERVER.connect((SERVER_IP, PORT))
         greeting = SERVER.recv(1024).decode('ascii')
-        #greeting = "CONNECTED"  ######################################################
-        #pygame.time.wait(1000)  #######################################################
         enemy_queue.insert(0, "CONNECTED")
         print(" " + greeting)
 
         print(" " + "Waiting for the other player to join...")
-        #greeting = "PLAYER 1"  ########################################################
         greeting = SERVER.recv(1024).decode('ascii')
 
-        #pygame.time.wait(1000)  #######################################################
         print(" All players have joined...")
         if greeting.find("PLAYER 1") != -1:
             print(" PLAYER 1 assignment")
@@ -134,7 +130,6 @@ def server_thread():
     print("Starting the game...")
     while gameon:
 
-        print("Waiting for info from server")
         try:
             comm = SERVER.recv(1024).decode('ascii')
         except OSError:
@@ -143,11 +138,9 @@ def server_thread():
             info = "SORRY! Server connection lost..."
             print(info)
             error_flag = True
-            gameon = False
             break
         print("Received:", comm)
-        print("Posting event")
-        enemy_queue.insert(0, comm) ##### UNCOMMENT TO GET INFO FROM ENEMY
+        enemy_queue.insert(0, comm)
 
         for event in pygame.event.get(EVENT_CLOSE_SOCKET):
             if event.type == EVENT_CLOSE_SOCKET:
@@ -155,7 +148,7 @@ def server_thread():
                 gameon = False
                 break
 
-    SERVER.close() ########## UNCOMMENT
+    SERVER.close()
     print("Thread FINISHED")
     return
 
@@ -171,9 +164,6 @@ class PyGameBoard(GameBoard):
         GameBoard.reset(self)
         for i in range(100):
             self.pyBoard[i // 10][i % 10] = self.blank
-
-    def getShip(self, surf):
-        pass
 
     def autoSet(self):
         # Board must be empty #
@@ -384,16 +374,14 @@ def drawBoard(screen, board, xy, opponent=False):
             if 1 <= board[row][col] <= 5:
                 if opponent:
                     pygame.draw.rect(image, SHIP_LIGHT, [x, y, CELL_WIDTH, CELL_WIDTH])
-                    #image.blit(p.pyBoard[row][col], (x, y))
 
             if board[row][col] == 7:
                 if opponent:
                     pygame.draw.rect(image, SHIP_LIGHT, [x, y, CELL_WIDTH, CELL_WIDTH])
                 image.blit(BOARD_HIT_SURF, (x, y))
-                # pygame.draw.rect(image, HIT_COLOR, [x, y, CELL_WIDTH, CELL_WIDTH])
+
             elif board[row][col] == 6:
                 image.blit(BOARD_MISS_SURF, (x, y))
-                # pygame.draw.rect(image, BACKGROUND, [x, y, CELL_WIDTH, CELL_WIDTH])
 
     screen.blit(image, xy)
     return boardrect
@@ -407,7 +395,6 @@ def startScreen(surf):
     ready = False
     connected = False
     alljoined = False
-    servererror = False
     while not ready:
         clock.tick(FRAMERATE)
 
@@ -417,9 +404,6 @@ def startScreen(surf):
                 ########### SHUTDOWN EVERYTHING ###########
                 pygame.quit()
                 sys.exit()
-
-            #if error_flag and (event.type == pygame.KEYDOWN and event.key == pygame.K_r):
-            #    return False
 
             if not error_flag and alljoined and \
                     ((event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or \
@@ -600,7 +584,7 @@ def placeShipsScreen(surf):
         ship.rect.y = 100 + i * 50
         ships.add(ship)
 
-        # Setup buttons #
+    # Setup buttons #
     b_width = 120
     b_height = 40
 
@@ -977,12 +961,6 @@ def finalAnimation(surf, board, win=True):
 
             if complete and event.type == pygame.KEYDOWN and event.key == pygame.K_q:
                 return False
-                #if event.key == pygame.K_r:
-                    # play again
-                #    return True
-                #elif event.key == pygame.K_q:
-                    # quit
-                #    return False
 
         surf.fill(BACKGROUND)
 
@@ -1017,7 +995,6 @@ def finalAnimation(surf, board, win=True):
 
 
 def drawBoards(surf, player=None):
-
     if player is None:
         player = p
 
@@ -1110,7 +1087,7 @@ def main():
                     if player_turn and getBoardRC(opponent_board, pos):
                         prow, pcol = getBoardRC(opponent_board, pos)
                         ############# SEND LAUNCH TO ENEMY
-                        SERVER.send((str(prow)+str(pcol)).encode('ascii'))
+                        SERVER.send((str(prow) + str(pcol)).encode('ascii'))
                         # LAUNCH ANIMATION #
                         launchScreen(mainSurface, opponent_board, (prow, pcol))
                         player_turn = False
@@ -1128,7 +1105,7 @@ def main():
 
             has_lost = p.hasLost()
             if has_lost and not board_sent:
-                SERVER.send(p.sendBoard().encode('ascii')) ###############################
+                SERVER.send(p.sendBoard().encode('ascii'))  ###############################
                 board_sent = True
 
             has_won = p.isWin()
@@ -1180,7 +1157,7 @@ def main():
                     col = int(data[1])
                     hit = p.copy().receiveShot(row, col)
                     ############# SEND HIT TO ENEMY
-                    SERVER.send(str(hit).encode('ascii')) ########################################
+                    SERVER.send(str(hit).encode('ascii'))  ########################################
                     launchScreen(mainSurface, player_board, (row, col))
                     hit = p.receiveShot(row, col)
                     if hit:
@@ -1223,8 +1200,6 @@ def main():
                     board = player_board
                 play_again = finalAnimation(mainSurface, board, has_won)
                 done = True
-                #if not play_again:
-                #    restart = False
                 restart = False
 
         # Kill the server thread before closing
