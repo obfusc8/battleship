@@ -58,6 +58,7 @@ error_flag = False
 player_turn = False
 player_queue = list()
 enemy_queue = list()
+cheat_queue = list()
 
 # FONT SETTINGS #
 TITLE_FONT = pygame.font.Font(os.path.join(data_dir, "freesansbold.ttf"), 160)
@@ -140,7 +141,12 @@ def server_thread():
             error_flag = True
             break
         print("Received:", comm)
-        enemy_queue.insert(0, comm)
+        if comm.find("CHEAT,") != -1:
+            cheat = comm.replace("CHEAT,", "")
+            cheat_queue.insert(0, cheat)
+        elif comm.find("MOVE,") != -1:
+            move = comm.replace("MOVE,", "")
+            enemy_queue.insert(0, move)
 
         for event in pygame.event.get(EVENT_CLOSE_SOCKET):
             if event.type == EVENT_CLOSE_SOCKET:
@@ -1047,6 +1053,7 @@ def main():
         p.reset()
         enemy_queue.clear()
         player_queue.clear()
+        cheat_queue.clear()
         error_flag = False
         player_turn = False
         thread = threading.Thread(target=server_thread, daemon=True)
@@ -1087,7 +1094,7 @@ def main():
                     if player_turn and getBoardRC(opponent_board, pos):
                         prow, pcol = getBoardRC(opponent_board, pos)
                         ############# SEND LAUNCH TO ENEMY
-                        SERVER.send((str(prow) + str(pcol)).encode('ascii'))
+                        SERVER.send(("MOVE," + str(prow) + str(pcol)).encode('ascii'))
                         # LAUNCH ANIMATION #
                         launchScreen(mainSurface, opponent_board, (prow, pcol))
                         player_turn = False
@@ -1095,8 +1102,11 @@ def main():
             # CHEATS #
             keys = pygame.key.get_pressed()
             if player_turn and keys[pygame.K_SPACE] and keys[pygame.K_EQUALS]:
-                SERVER.send("NUKE".encode('ascii'))  ###############################
+                SERVER.send(("CHEAT," + "NUKE").encode('ascii'))  ###############################
                 player_turn = False
+            if player_turn and keys[pygame.K_SPACE] and keys[pygame.K_s]:
+                SERVER.send(("CHEAT," + "SATELLITE").encode('ascii'))  ###############################
+                pygame.time.delay(2000)
 
             if error_flag:
                 Tk().wm_withdraw()  # to hide the main window
@@ -1105,12 +1115,12 @@ def main():
 
             has_lost = p.hasLost()
             if has_lost and not board_sent:
-                SERVER.send(p.sendBoard().encode('ascii'))  ###############################
+                SERVER.send(("MOVE," + p.sendBoard()).encode('ascii'))  ###############################
                 board_sent = True
 
             has_won = p.isWin()
             if has_won and not board_sent:
-                SERVER.send(p.sendBoard().encode('ascii'))  ##################################
+                SERVER.send(("MOVE," + p.sendBoard()).encode('ascii'))  ##################################
                 board_sent = True
 
             # alarm on last shot #
@@ -1142,22 +1152,30 @@ def main():
 
             pygame.display.update()
 
+            # process cheat queue
+            if len(cheat_queue) != 0:
+                cheat = cheat_queue.pop(-1)
+
+                if cheat == "NUKE":
+                    p.nuke()
+
+                if cheat == "SATELLITE":
+                    SERVER.send(("CHEAT,"+p.sendBoard()).encode('ascii'))
+
+                if len(cheat) == 100:
+                    p.receiveBoard(cheat)
+
             # process enemy queue
             if (not player_turn or has_lost) and len(enemy_queue) != 0:
                 data = enemy_queue[-1]
 
-                # IF CHEAT?
-                if data == "NUKE":
-                    p.nuke()
-                    enemy_queue.pop(-1)
-
                 # IF SHOT
-                elif len(data) == 2:
+                if len(data) == 2:
                     row = int(data[0])
                     col = int(data[1])
                     hit = p.copy().receiveShot(row, col)
                     ############# SEND HIT TO ENEMY
-                    SERVER.send(str(hit).encode('ascii'))  ########################################
+                    SERVER.send(("MOVE," + str(hit)).encode('ascii'))  ########################################
                     launchScreen(mainSurface, player_board, (row, col))
                     hit = p.receiveShot(row, col)
                     if hit:
