@@ -1104,10 +1104,6 @@ def main():
                     restart = False
                     done = True
 
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_EQUALS:
-                    SERVER.send("NUKE".encode('ascii'))  ###############################
-                    player_turn = False
-
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     pos = pygame.mouse.get_pos()
 
@@ -1118,6 +1114,12 @@ def main():
                         # LAUNCH ANIMATION #
                         launchScreen(mainSurface, opponent_board, (prow, pcol))
                         player_turn = False
+
+            # CHEATS #
+            keys = pygame.key.get_pressed()
+            if player_turn and keys[pygame.K_SPACE] and keys[pygame.K_EQUALS]:
+                SERVER.send("NUKE".encode('ascii'))  ###############################
+                player_turn = False
 
             if error_flag:
                 Tk().wm_withdraw()  # to hide the main window
@@ -1164,7 +1166,7 @@ def main():
             pygame.display.update()
 
             # process enemy queue
-            if not player_turn and len(enemy_queue) != 0:
+            if (not player_turn or has_lost) and len(enemy_queue) != 0:
                 data = enemy_queue[-1]
 
                 # IF CHEAT?
