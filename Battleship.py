@@ -56,7 +56,6 @@ pygame.init()
 clock = pygame.time.Clock()
 error_flag = False
 player_turn = False
-player_queue = list()
 enemy_queue = list()
 cheat_queue = list()
 
@@ -1039,7 +1038,7 @@ def drawBoards(surf, player=None):
 
 
 def main():
-    global player_turn, enemy_queue, player_queue, error_flag
+    global player_turn, enemy_queue, cheat_queue, error_flag
     mainSurface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     flashSurface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -1052,12 +1051,12 @@ def main():
         flashSurface.fill(FLASH_COLOR)
         p.reset()
         enemy_queue.clear()
-        player_queue.clear()
         cheat_queue.clear()
         error_flag = False
         player_turn = False
         thread = threading.Thread(target=server_thread, daemon=True)
         thread.start()
+        key_timer = pygame.time.get_ticks()
 
         # PLAYER SETUP #
         start_music.stop()
@@ -1100,13 +1099,21 @@ def main():
                         player_turn = False
 
             # CHEATS #
-            keys = pygame.key.get_pressed()
-            if player_turn and keys[pygame.K_SPACE] and keys[pygame.K_EQUALS]:
-                SERVER.send(("CHEAT," + "NUKE").encode('ascii'))  ###############################
-                player_turn = False
-            if player_turn and keys[pygame.K_SPACE] and keys[pygame.K_s]:
-                SERVER.send(("CHEAT," + "SATELLITE").encode('ascii'))  ###############################
-                pygame.time.delay(2000)
+            if player_turn:
+                if pygame.time.get_ticks() - key_timer > 3000:
+                    keys = pygame.key.get_pressed()
+                    # GO NUCLEAR #
+                    if keys[pygame.K_SPACE] and keys[pygame.K_EQUALS]:
+                        SERVER.send(("CHEAT," + "NUKE").encode('ascii'))  ###############################
+                        player_turn = False
+                    # REVEAL ENEMY MAP #
+                    if keys[pygame.K_SPACE] and keys[pygame.K_s]:
+                        SERVER.send(("CHEAT," + "SATELLITE").encode('ascii'))  ###############################
+                        key_timer = pygame.time.get_ticks()
+                    # TAKE OUT ONE SHIP #
+                    if keys[pygame.K_SPACE] and keys[pygame.K_r]:
+                        SERVER.send(("CHEAT," + "SNIPER").encode('ascii'))  ###############################
+                        key_timer = pygame.time.get_ticks()
 
             if error_flag:
                 Tk().wm_withdraw()  # to hide the main window
@@ -1160,7 +1167,25 @@ def main():
                     p.nuke()
 
                 if cheat == "SATELLITE":
-                    SERVER.send(("CHEAT,"+p.sendBoard()).encode('ascii'))
+                    SERVER.send(("CHEAT," + p.sendBoard()).encode('ascii'))
+
+                if cheat == "SNIPER":
+                    snipe = p.findHit()
+                    SERVER.send(("CHEAT," + snipe).encode('ascii'))
+                    row = int(snipe[0])
+                    col = int(snipe[1])
+                    launchScreen(mainSurface, player_board, (row, col))
+                    p.receiveShot(row, col)
+                    hitAnimation(mainSurface, player_board, (row, col))
+                    player_turn = True
+
+                if len(cheat) == 2:
+                    prow = int(cheat[0])
+                    pcol = int(cheat[1])
+                    launchScreen(mainSurface, opponent_board, (prow, pcol))
+                    p.logShot(prow, pcol, True)
+                    hitAnimation(mainSurface, opponent_board, (prow, pcol))
+                    player_turn = False
 
                 if len(cheat) == 100:
                     p.receiveBoard(cheat)
